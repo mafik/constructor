@@ -1,0 +1,105 @@
+* Build script
+** Add skia flags
+
+* Menedżer wersji obiektów - pozwalający na wczytanie danych w starszej wersji i konwersję do nowszej
+* Generator TextureAtlas-ów
+* Algorytm rozmiszczania elementów menu
+
+* Class structure
+** GL
+Contains GL objects shared accross all of the objects. In particular: typical meshes, primitives (circle, pie, sprite).
+** Texture
+Represents GL texture. GL textures are not shared (at least currently) and are local to the GL context in which they were created. Allows scaling & tinting.
+
+* Cele
+** DONE Makefile kompiluje program na linuksa
+** DONE Makefile kompiluje program na androida
+** DONE Logowanie na Androidzie i na Linuksie
+** Android
+*** Obracanie ekranu
+*** Wychodzenie z SDL na Androidzie po wciśnięciu przycisku "back"
+*** Odpalenie na Androidzie usługi działającej cały czas w tle (od startu do restartu)
+** DONE Znajdowanie katalogu do zapisu zserializowanych danych
+** Klasa Object - z możliwością deserializacji
+** Przykładowy Obiekt - kolorowe kółko
+** Obsługa dotyku
+** Przenieść radial menu
+* Wstęp
+Potrzebny jest pewien poziom abstrakcji - baza, która nie jest implementowana przez moduły, ale zapewniona przez środowisko - constructora. Później tą bazę będzie się redukować, aż powstanie coś a'la Emacs - małe jądro plus środowisko napisane same w sobie.
+* Obsługa pamięci
+Każdy obiekt załadowany jest do pamięci RAM. Może trzymać dane na dysku, bądź odbierać z sieci. Cały czas jego kod załadowany jest w pamięci.
+** TODO: API do przenoszenia obiektów na dysk w razie braku pamięci
+* (De)Serializacja
+Obiekty mogą być (de)serializowane. Obiekty nie posiadają identyfikatorów (herezja :D). Identyfikowane są przez ich relacje (połączenia) z resztą sieci. Serializowany obiekt musi dostarczyć tablicę bajtów, która jest wynikiem jego serializacji.
+* Rysowanie
+Zrealizowane za pomocą OpenGL ES 3.0. Każdy obiekt posiada trzy funkcje (glLoad, glUnload i glDraw), wywoływane z wątku OpenGL. Do tych funkcji przekazywany jest pomocniczy obiekt GLState, który służy do przechowywania różnych współdzielonych przez węzły zasobów.
+Klatka rysowana jest na początku swojej ramki (korzystając z najaktualniejszych danych dotyku i logiki). Wyświetlana jest po 16 milisekundach (nie ma renderowania "na zapas" czyli triple-bufferingu).
+Dodatkowo constructor zapewnia funkcje do realizowania typowych zadań (łączenie tekstur w TextureAtlas, albo rysowania tekstu).
+16ms                 16ms                    16ms
+....................|.......................|........................|
+##########           ##########              ##########               - rysowanie
+* Logika
+Relacje między węzłami zapisywane są w połączeniach i ich etykietach. Węzeł może wyprodukować komunikat i zostawić go w krawędzi. Następny węzeł jest wtedy powiadamiany i odbiera wiadomość - zaczyna ją przetwarzać. Kiedy węzeł producent chce zostawić komunikat w połączeniu, które jest zajęte, jest blokowany, aż konsument skończy przetwarzanie.
+
+Wiadomości same także powinny być obiektami.
+
+Jeśli obiekt nie wie co zrobić z otrzymanym komunikatem, może wyświetlić powiadomienie.
+
+Czy jest powód dla zróżnicowania typów połączeń? - etykiety, przesyłanie komunikatów i strumieni? Nie - nie ma - wszystko da się przepchnąć zwykłym połączeniem
+** Singletony
+Czy singleton i obiekt globalny to to samo? Singletonem jest coś czego usuwanie nie ma sensu oraz co może istnieć tylko w jednej kopii.
+** Połączenia bezpośrednie
+Relacja jawna to bezpośrednie połączenie dwóch obiektów
+** Połączenia globalne
+Relacja domyślna to 
+** Dalekie połączenia
+Jeśli obiekt docelowy jest daleko, połączenie kończy się skrótem, który przenosi w miejsce docelowe
+** Kod a dane
+Jedna instancja kodu może niewielkim kosztem zostać zreplikowana dużą ilość razy.
+
+Kod zawsze potrzebuje danych do działania.
+* Dane
+Constructor to środowisko do manipulacji danymi.
+Dane mogą reprezentować rzeczywiste obiekty (np. mikrofon).
+Dane mogą reprezentować zawartość pamięci (np. bitmapa).
+Dane mogą reprezentować abstrakcyjne obiekty (np. miasto).
+** Połączenia
+Dane połączone są ze sobą za pomocą połączeń.
+Połączenia etykietowane są innymi danymi.
+** Kod
+Dane mogą być modyfikowane przez kod.
+Kod też jest rodzajem danych.
+Kod potrzebuje danych, na których mógłby pracować - nigdy nie modyfikuje sam siebie.
+Dane kodu nazywamy argumentami.
+*** Struktura
+Kod może działać samotnie (przyjmować argumenty z połączonych obiektów).
+Kod może być związany z jakimś obiektem i pracować na nim.
+*** Uruchamianie
+Uruchamianiem kodu steruje globalna kolejka zadań.
+Zadania są odbierane z kolejki przez wątki robocze.
+
+Na zadanie składa się: Obiekt do uruchomienia, argument oraz obiekt do powiadomienia po wykonaniu zadania.
+Kod uruchamiany jest: ręcznie albo po otrzymaniu sygnału.
+Kod zwraca wynik tam gdzie prowadzi połączenie wyjściowe (strumieniowo).
+
+* Layout
+Obiekty układane są na ekranie na swoich pozycjach. Każdy obiekt ma rozmiar r - oznacza on, że dany obiekt zajmuje kwadrat o boku równym 2*r. R jest obliczane dynamicznie ale zwykle przechowywane w zwykłej zmiennej.
+
+Przy rysowaniu połączeń, każdy obiekt pytany jest o pozycje końcowe dla połączeń
+
+Główny obiekt - pudełko zawiera inne obiekty. Może wypuszczać jakieś połączenia na zewnątrz.
+* Dotyk i menu kołowe (to jedno i to samo!)
+Węzeł może otrzymać dotyk - wywołana zostanie funkcja touch - jeśli zwróci TouchHandlera, kolejne funkcje - touchMove i touchEnd będą wywoływane aż do zakończenia dotyku.
+* Klasy
+** SDLRunner (Windows, Linux, MacOS)
+** NativeActivity (Android)
+** GLHelper
+** Object
+*** Painter* makePainter(GLHelper*);
+*** TouchHandler* touch(Touch*);
+** Painter
+*** void paint(GLHelper* helper, Object* object);
+*** void finish();
+** TextObject
+** GLText
+** Connection
